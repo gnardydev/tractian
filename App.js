@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, TextInput, Image, ActivityIndicator } from 'react-native';
-import { getCompanies, getCompanyLocations, getCompanyAssetsPaginated } from './src/api'; // Atualize para usar a API paginada
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ScrollView, TextInput } from 'react-native';
+import { getCompanies, getCompanyLocations, getCompanyAssets } from './src/api';
 
-// Importando ícones
+// Importando os ícones
 import locationIcon from './assets/icons/location.png';
 import assetIcon from './assets/icons/asset.png';
 import componentIcon from './assets/icons/component.png';
@@ -16,69 +15,24 @@ const App = () => {
   const [searchText, setSearchText] = useState('');
   const [showEnergySensors, setShowEnergySensors] = useState(false);
   const [showCriticalStatus, setShowCriticalStatus] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1); // Estado para gerenciar a página atual
-  const [allLoaded, setAllLoaded] = useState(false); // Estado para indicar se todos os dados foram carregados
 
   useEffect(() => {
     const fetchCompanies = async () => {
-      setLoading(true);
-      try {
-        const response = await getCompanies();
-        setCompanies(response.data);
-      } catch (error) {
-        console.error("Error fetching companies:", error);
-      } finally {
-        setLoading(false);
-      }
+      const response = await getCompanies();
+      setCompanies(response.data);
     };
 
     fetchCompanies();
   }, []);
 
   const handleCompanySelect = async (companyId) => {
-    setLoading(true);
-    setPage(1);
-    setAllLoaded(false);
-    try {
-      const locationsResponse = await getCompanyLocations(companyId);
-      const assetsResponse = await getCompanyAssetsPaginated(companyId, 1); // Carregar a primeira página
+    const locationsResponse = await getCompanyLocations(companyId);
+    const assetsResponse = await getCompanyAssets(companyId);
 
-      console.log("Locations Response:", locationsResponse.data);
-      console.log("Assets Response:", assetsResponse.data);
-
-      const tree = buildTree(locationsResponse.data, assetsResponse.data);
-      setTreeData(tree);
-      setFilteredData(tree);
-      setSelectedCompany(companyId);
-    } catch (error) {
-      console.error("Error selecting company:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMoreAssets = async () => {
-    if (allLoaded || loading) return;
-
-    setLoading(true);
-    try {
-      const nextPage = page + 1;
-      const assetsResponse = await getCompanyAssetsPaginated(selectedCompany, nextPage);
-
-      if (assetsResponse.data.length === 0) {
-        setAllLoaded(true);
-      } else {
-        const newTreeData = buildTree(treeData[0].children, assetsResponse.data);
-        setTreeData(newTreeData);
-        setFilteredData(newTreeData);
-        setPage(nextPage);
-      }
-    } catch (error) {
-      console.error("Error loading more assets:", error);
-    } finally {
-      setLoading(false);
-    }
+    const tree = buildTree(locationsResponse.data, assetsResponse.data);
+    setTreeData(tree);
+    setFilteredData(tree);
+    setSelectedCompany(companyId);
   };
 
   const buildTree = (locations, assets) => {
@@ -113,22 +67,23 @@ const App = () => {
       }
     });
 
-    console.log("Tree Data:", root);
-
     return [root];
   };
 
   const applyFilters = () => {
     let filtered = [...treeData];
 
+    // Apply text search filter
     if (searchText) {
       filtered = filterTreeByText(filtered, searchText);
     }
 
+    // Apply energy sensors filter
     if (showEnergySensors) {
       filtered = filterTreeByEnergySensors(filtered);
     }
 
+    // Apply critical status filter
     if (showCriticalStatus) {
       filtered = filterTreeByCriticalStatus(filtered);
     }
@@ -183,8 +138,6 @@ const App = () => {
       <TouchableOpacity style={styles.nodeContent}>
         <Image source={getIconSource(node.type)} style={styles.icon} />
         <Text style={styles.nodeText}>{node.name}</Text>
-        {node.sensorType === 'energy' && <Icon name="bolt" style={styles.statusIcon} size={16} color="green" />}
-        {node.status === 'critical' && <Icon name="error" style={styles.statusIcon} size={16} color="red" />}
       </TouchableOpacity>
       {node.children && (
         <View style={styles.childrenContainer}>
@@ -211,19 +164,10 @@ const App = () => {
     applyFilters();
   }, [searchText, showEnergySensors, showCriticalStatus]);
 
-  if (loading && page === 1) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Asset Tree Viewer</Text>
       {!selectedCompany ? (
-        // Renderiza a lista de empresas se nenhuma empresa estiver selecionada
         <FlatList
           data={companies}
           keyExtractor={(item) => item.id}
@@ -234,22 +178,10 @@ const App = () => {
           )}
         />
       ) : (
-        // Renderiza a árvore e os filtros se uma empresa estiver selecionada
-        <ScrollView
-          onScroll={({ nativeEvent }) => {
-            if (isCloseToBottom(nativeEvent)) {
-              loadMoreAssets();
-            }
-          }}
-          scrollEventThrottle={400}
-        >
-          <TouchableOpacity onPress={() => setSelectedCompany(null)} style={styles.backButton}>
-            <Icon name="arrow-back" size={24} color="black" />
-            <Text style={styles.backButtonText}>Voltar para Empresas</Text>
-          </TouchableOpacity>
+        <ScrollView>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar Ativo ou Localização"
+            placeholder="Search..."
             value={searchText}
             onChangeText={setSearchText}
           />
@@ -258,26 +190,20 @@ const App = () => {
               style={[styles.filterButton, showEnergySensors && styles.filterButtonActive]}
               onPress={() => setShowEnergySensors(!showEnergySensors)}
             >
-              <Text style={styles.filterButtonText}>Sensor de Energia</Text>
+              <Text style={styles.filterButtonText}>Energy Sensors</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.filterButton, showCriticalStatus && styles.filterButtonActive]}
               onPress={() => setShowCriticalStatus(!showCriticalStatus)}
             >
-              <Text style={styles.filterButtonText}>Crítico</Text>
+              <Text style={styles.filterButtonText}>Critical Status</Text>
             </TouchableOpacity>
           </View>
           <View>{filteredData.map((node) => renderTree(node))}</View>
-          {loading && <ActivityIndicator size="large" color="#0000ff" />}
         </ScrollView>
       )}
     </View>
   );
-};
-
-// Função para verificar se está próximo do fim da lista
-const isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
-  return layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
 };
 
 // Estilos para o componente App
@@ -287,16 +213,11 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: '#fff',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    marginTop: 50, // Adiciona margem superior ao título
+    marginTop: 20, // Adiciona espaçamento superior ao título
   },
   companyButton: {
     padding: 10,
@@ -305,15 +226,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   companyText: {
-    fontSize: 16,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  backButtonText: {
-    marginLeft: 5,
     fontSize: 16,
   },
   node: {
@@ -337,9 +249,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  statusIcon: {
-    marginLeft: 5,
-  },
   searchInput: {
     height: 40,
     borderColor: '#ccc',
@@ -350,16 +259,16 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 10,
   },
   filterButton: {
+    flex: 1,
     padding: 10,
     backgroundColor: '#ddd',
+    marginHorizontal: 5,
     borderRadius: 5,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
   },
   filterButtonActive: {
     backgroundColor: '#aaa',

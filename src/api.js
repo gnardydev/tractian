@@ -1,20 +1,19 @@
 import axios from 'axios';
 
+// URL base da API fornecida do git
 const API_URL = 'https://fake-api.tractian.com';
 
-// Função para obter as empresas
+// Função para obter todas as empresas listadas na api
 export const getCompanies = async () => {
-  return await axios.get(`${API_URL}/companies`);
+  return axios.get(`${API_URL}/companies`);
 };
 
-// Função para obter as localizações da empresa
+// Função para obter todas as localizações de uma empresa específica pelo id
 export const getCompanyLocations = async (companyId) => {
-  return await axios.get(`${API_URL}/companies/${companyId}/locations`);
+  return axios.get(`${API_URL}/companies/${companyId}/locations`);
 };
 
-// Função para obter os ativos da empresa com paginação
-export const getCompanyAssetsPaginated = async (companyId, page, pageSize = 10) => {
-  return await axios.get(`${API_URL}/companies/${companyId}/assets`, {
-    params: { page, pageSize }
-  });
+// Função para obter todos os ativos de uma empresa específica pelo id
+export const getCompanyAssets = async (companyId) => {
+  return axios.get(`${API_URL}/companies/${companyId}/assets`);
 };
