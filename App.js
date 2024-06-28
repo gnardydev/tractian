@@ -3,12 +3,13 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image, A
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getCompanies, getCompanyLocations, getCompanyAssets } from './src/api';
 
-// Importando os ícones
+// Importando os ícones fornecidos
 import locationIcon from './assets/icons/location.png';
 import assetIcon from './assets/icons/asset.png';
 import componentIcon from './assets/icons/component.png';
 
-// Define o tamanho da página para paginação
+// Define o tamanho da página para paginação e carregar de 50 em 50
+// Como a API não suportava paginação, tive que fazer a otimização pelo lado do cliente
 const PAGE_SIZE = 50;
 
 const App = () => {
@@ -33,7 +34,7 @@ const App = () => {
     fetchCompanies();
   }, []);
 
-  // Lida com a seleção de uma empresa
+  // Lida com a seleção de uma empresa e traz os assets
   const handleCompanySelect = async (companyId) => {
     setLoading(true);
     const locationsResponse = await getCompanyLocations(companyId);
@@ -50,7 +51,7 @@ const App = () => {
     setPage(1);
   };
 
-  // Carrega mais ativos ao rolar a página
+  // Carrega mais ativos ao rolar a página a medida que vai em vez de trazer todos de uma vez
   const loadMoreAssets = () => {
     if (loading) return;
 
